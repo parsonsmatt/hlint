@@ -170,6 +170,12 @@ checkImports modu lImportDecls (def, mp) = mapMaybe getImportHint lImportDecls
     getImportHint i@(L _ ImportDecl{..}) = do
       let RestrictItem{..} = getRestrictItem def ideclName mp
       either (Just . ideaMessage riMessage) (const Nothing) $ do
+        case riWithin of
+          [] ->
+            Left $ ideaNoTo $ warn "Avoid restricted module" (reLoc i) (reLoc i) []
+          _ ->
+            pure ()
+
         unless (within modu "" riWithin) $
           Left $ ideaNoTo $ warn "Avoid restricted module" (reLoc i) (reLoc i) []
 
