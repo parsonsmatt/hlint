@@ -161,7 +161,7 @@ data Restrict = Restrict
     ,restrictAsRequired :: Alt Maybe Bool -- for RestrictModule only
     ,restrictImportStyle :: Alt Maybe RestrictImportStyle -- for RestrictModule only
     ,restrictQualifiedStyle :: Alt Maybe QualifiedStyle -- for RestrictModule only
-    ,restrictWithin :: [(String, String)]
+    ,restrictWithin :: Maybe [(String, String)]
     ,restrictIdents :: RestrictIdents -- for RestrictModule only, what identifiers can be imported from it
     ,restrictMessage :: Maybe String
     } deriving Show

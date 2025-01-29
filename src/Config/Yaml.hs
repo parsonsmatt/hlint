@@ -343,10 +343,10 @@ parseRestrict restrictType v = do
         Just def -> do
             b <- parseBool def
             allowFields v ["default"]
-            pure $ Restrict restrictType b [] mempty mempty mempty mempty [] NoRestrictIdents Nothing
+            pure $ Restrict restrictType b [] mempty mempty mempty mempty (Just []) NoRestrictIdents Nothing
         Nothing -> do
             restrictName <- parseFieldOpt "name" v >>= maybe (pure []) parseArrayString
-            restrictWithin <- parseFieldOpt "within" v >>= maybe (pure [("","")]) (parseArray >=> concatMapM parseWithin)
+            restrictWithin <- parseFieldOpt "within" v >>= traverse (parseArray >=> concatMapM parseWithin)
             restrictAs <- parseFieldOpt "as" v >>= maybe (pure []) parseArrayString
             restrictAsRequired <- parseFieldOpt "asRequired" v >>= fmap Alt . maybeParse parseBool
             restrictImportStyle <- parseFieldOpt "importStyle" v >>= fmap Alt . maybeParseEnum

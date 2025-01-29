@@ -77,7 +77,7 @@ data RestrictItem = RestrictItem
     ,riAsRequired :: Alt Maybe Bool
     ,riImportStyle :: Alt Maybe RestrictImportStyle
     ,riQualifiedStyle :: Alt Maybe QualifiedStyle
-    ,riWithin :: [(String, String)]
+    ,riWithin :: Maybe [(String, String)]
     ,riRestrictIdents :: RestrictIdents
     ,riMessage :: Maybe String
     }
@@ -91,7 +91,7 @@ instance Semigroup RestrictItem where
 -- distinguish functions with the same name.
 -- For example, this allows us to have separate rules for "Data.Map.fromList" and "Data.Set.fromList".
 -- Using newtype rather than type because we want to define (<>) as 'Map.unionWith (<>)'.
-newtype RestrictFunction = RestrictFun (Map.Map (Maybe String) ([(String, String)], Maybe String))
+newtype RestrictFunction = RestrictFun (Map.Map (Maybe String) (Maybe [(String, String)], Maybe String))
 
 instance Semigroup RestrictFunction where
     RestrictFun m1 <> RestrictFun m2 = RestrictFun (Map.unionWith (<>) m1 m2)
@@ -133,8 +133,8 @@ ideaNoTo w = w{ideaTo=Nothing}
 noteMayBreak :: Note
 noteMayBreak = Note "may break the code"
 
-within :: String -> String -> [(String, String)] -> Bool
-within modu func = any (\(a,b) -> (a ~= modu || a == "") && (b ~= func || b == ""))
+within :: String -> String -> Maybe [(String, String)] -> Bool
+within modu func = any (\(a,b) -> (a ~= modu || a == "") && (b ~= func || b == "")) . fromMaybe [("","")]
   where (~=) = wildcardMatch
 
 ---------------------------------------------------------------------
@@ -170,12 +170,6 @@ checkImports modu lImportDecls (def, mp) = mapMaybe getImportHint lImportDecls
     getImportHint i@(L _ ImportDecl{..}) = do
       let RestrictItem{..} = getRestrictItem def ideclName mp
       either (Just . ideaMessage riMessage) (const Nothing) $ do
-        case riWithin of
-          [] ->
-            Left $ ideaNoTo $ warn "Avoid restricted module" (reLoc i) (reLoc i) []
-          _ ->
-            pure ()
-
         unless (within modu "" riWithin) $
           Left $ ideaNoTo $ warn "Avoid restricted module" (reLoc i) (reLoc i) []
 
@@ -239,7 +233,7 @@ checkImports modu lImportDecls (def, mp) = mapMaybe getImportHint lImportDecls
 
 getRestrictItem :: Bool -> LocatedA ModuleName -> Map.Map String RestrictItem -> RestrictItem
 getRestrictItem def ideclName =
-  fromMaybe (RestrictItem mempty mempty mempty mempty [("","") | def] NoRestrictIdents Nothing)
+  fromMaybe (RestrictItem mempty mempty mempty mempty (Just [("","") | def]) NoRestrictIdents Nothing)
     . lookupRestrictItem ideclName
 
 lookupRestrictItem :: LocatedA ModuleName -> Map.Map String RestrictItem -> Maybe RestrictItem
@@ -282,7 +276,7 @@ checkFunctions scope modu decls (def, mp) =
     , let dname = fromMaybe "" (declName d)
     , x <- universeBi d :: [LocatedN RdrName]
     , let xMods = possModules scope x
-    , let (withins, message) = fromMaybe ([("","") | def], Nothing) (findFunction mp x xMods)
+    , let (withins, message) = fromMaybe (Just [("","") | def], Nothing) (findFunction mp x xMods)
     , not $ within modu dname withins
     ]
 
@@ -294,7 +288,7 @@ findFunction
     :: Map.Map String RestrictFunction
     -> LocatedN RdrName
     -> [ModuleName]
-    -> Maybe ([(String, String)], Maybe String)
+    -> Maybe (Maybe [(String, String)], Maybe String)
 findFunction restrictMap (rdrNameStr -> x) (map moduleNameString -> possMods) = do
     (RestrictFun mp) <- Map.lookup x restrictMap
     n <- NonEmpty.nonEmpty . Map.elems $ Map.filterWithKey (const . maybe True (`elem` possMods)) mp
